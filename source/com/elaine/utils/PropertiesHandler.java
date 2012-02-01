@@ -70,17 +70,23 @@ public class PropertiesHandler
 
 			is = c.getClassLoader().getResourceAsStream(ENVIRONMENT_PROPERTIES);
 			if (is == null)
-				throw new IOException("Environment.properties does not exist!!");
-			props.load(is);
-			log.info("Environment Properties loaded successfully!");
-			is.close();
+				log.warn("No Environment Properties exist...continuing without it");
+			else
+			{
+				props.load(is);
+				log.info("Environment Properties loaded successfully!");
+				is.close();
+			}
 
 			is = c.getClassLoader().getResourceAsStream(SECURE_PROPERTIES);
 			if (is == null)
-				throw new IOException("Secure.properties does not exist!!");
-			props.load(is);
-			log.info("Secure Properties loaded successfully!");
-			is.close();
+				log.warn("No Secure Properties exist...continuing without it");
+			else
+			{
+				props.load(is);
+				log.info("Secure Properties loaded successfully!");
+				is.close();
+			}
 
 			is = c.getClassLoader().getResourceAsStream(OVERRIDE_PROPERTIES);
 			if (is == null)

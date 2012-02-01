@@ -20,11 +20,14 @@ import org.apache.http.message.BasicNameValuePair;
 import org.codehaus.stax2.XMLOutputFactory2;
 import org.codehaus.stax2.XMLStreamWriter2;
 
+import com.elaine.utils.PropertiesHandler;
+
 public class ImportSimulator
 {
 	HttpClient httpclient = new DefaultHttpClient();
 	long totalTime = 0;
 	public static final int BATCH_SIZE = 2000;
+	public static PropertiesHandler props = PropertiesHandler.getInstance();
 	
 	public ImportSimulator()
 	{	}
@@ -32,7 +35,8 @@ public class ImportSimulator
 	protected String indexDocuments(String requestXML)
 		throws Exception
 	{
-		HttpPost post = new HttpPost("http://localhost:8080/solr-import-fe/import");
+		String importFEURL = props.getProperty("importfe.url");
+		HttpPost post = new HttpPost(importFEURL);
 		
 		List<NameValuePair> params = new ArrayList<NameValuePair>();
 		params.add(new BasicNameValuePair("data", requestXML));
@@ -66,7 +70,7 @@ public class ImportSimulator
 
 	// essentially, we're sending a bunch of documents into solr
 
-	private String buildBatchRequest(File[] files, int firstDoc, int lastDoc)
+	private String buildBatchRequest(String core, File[] files, int firstDoc, int lastDoc)
 		throws Exception
 	{
 		/*
@@ -82,6 +86,7 @@ public class ImportSimulator
 		xmlWriter.writeStartDocument("UTF-8", "1.0");
 		xmlWriter.writeCharacters("\n");
 		xmlWriter.writeStartElement("Docs");
+		xmlWriter.writeAttribute("core", core);
 		xmlWriter.writeCharacters("\n");
 
 		for (int i = firstDoc; i < lastDoc + 1; i++)
@@ -102,21 +107,10 @@ public class ImportSimulator
 		return writer.toString();
 	}
 
-	public static void main(String[] args)
+	public void importDA(String core, String dir)
 		throws Exception
 	{
-		//index all documents in a directory
-		ImportSimulator sim = new ImportSimulator();
-
-		HttpClient httpclient = new DefaultHttpClient();
-		
-		// get the documents
-		String dir = "J:/GAOnSolrWork/WKUS-TAL-DOCS-PHC/WKUS_TAL_553";
-		//String dir = "J:/GAOnSolrWork/WKUS-TAL-DOCS-PHC/WKUS_TAL_329";
-		//String dir = "J:/GAOnSolrWork/WKUS-TAL-DOCS-PHC/WKUS_TAL_408";
-		//String dir = "J:/GAOnSolrWork/WKUS-TAL-DOCS-PHC/WKUS_TAL_1334";
-		//String dir = "J:/GAOnSolrWork/WKUS-TAL-DOCS-PHC/WKUS_TAL_1338";
-		File[] documents = sim.getFiles(dir);
+		File[] documents = getFiles(dir);
 
 		int i = 0;
 
@@ -128,11 +122,11 @@ public class ImportSimulator
 			if (lastDoc > documents.length)
 				lastDoc = documents.length - 1;
 
-			String requestXML = sim.buildBatchRequest(documents, firstDoc, lastDoc);
+			String requestXML = buildBatchRequest(core, documents, firstDoc, lastDoc);
 
 			try
 			{
-				String responseBody = sim.indexDocuments(requestXML);
+				String responseBody = indexDocuments(requestXML);
 				
 				System.out.println("----------------------------------------");
 				System.out.println(responseBody);
@@ -146,12 +140,40 @@ public class ImportSimulator
 			}
 		}
 
+		System.out.println("Total Indexing time: " + totalTime + " ms");
+		
+	}
+	
+	public static void main(String[] args)
+		throws Exception
+	{
+		//index all documents in a directory
+		ImportSimulator sim = new ImportSimulator();
+
+		// get the documents
+		String docLocation =
+			props.getProperty("document.location") + "/" +
+			props.getProperty("segment.id") + "/" +
+			props.getProperty("collection.id") + "/";
+		
+		if (args == null || args.length < 2)
+		{
+			System.err.println("Usage: ImportSimilator <<core>> <<list of DA IDs>>");
+			System.exit(0);
+		}
+			
+		String core = args[0];
+
+		for (int i = 1; i < args.length; i++)
+		{
+			String dir = docLocation + args[i];
+			sim.importDA(core, dir);
+		}
+		
 		// When HttpClient instance is no longer needed,
 		// shut down the connection manager to ensure
 		// immediate deallocation of all system resources			
-		httpclient.getConnectionManager().shutdown();
-		
-		System.out.println("Total Indexing time: " + sim.totalTime + " ms");
-		
+		sim.httpclient.getConnectionManager().shutdown();
+
 	}		
 }
